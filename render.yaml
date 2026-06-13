@@ -16,3 +16,18 @@ services:
         value: '["*"]'
       - key: PYTHON_VERSION
         value: "3.12"
+
+  # Frontend (static site with SPA routing)
+  - type: web
+    runtime: static
+    name: aiflow-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+        value: ""
