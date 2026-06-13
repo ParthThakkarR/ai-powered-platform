@@ -21,3 +21,5 @@ class Task(Base):
 
     project = relationship("Project", back_populates="tasks")
     assignee = relationship("User")
+    comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan", order_by="Comment.created_at.desc()")
+    labels = relationship("Label", secondary="task_labels", lazy="joined")

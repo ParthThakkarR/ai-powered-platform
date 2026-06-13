@@ -84,6 +84,49 @@ export const aiApi = {
   getStatus: (taskId: string) => api.get(`/ai/status/${taskId}`),
 };
 
+// ===== Comments API =====
+export const commentApi = {
+  listByTask: (taskId: number, skip = 0, limit = 50) =>
+    api.get(`/tasks/${taskId}/comments`, { params: { skip, limit } }),
+  create: (taskId: number, content: string) =>
+    api.post(`/tasks/${taskId}/comments`, { content }),
+  delete: (commentId: number) => api.delete(`/tasks/comments/${commentId}`),
+};
+
+// ===== Labels API =====
+export const labelApi = {
+  list: () => api.get('/labels/'),
+  create: (data: { name: string; color: string }) => api.post('/labels/', data),
+  delete: (labelId: number) => api.delete(`/labels/${labelId}`),
+  addToTask: (taskId: number, labelId: number) =>
+    api.post(`/labels/tasks/${taskId}/labels/${labelId}`),
+  removeFromTask: (taskId: number, labelId: number) =>
+    api.delete(`/labels/tasks/${taskId}/labels/${labelId}`),
+};
+
+// ===== Search API =====
+export const searchApi = {
+  search: (params: { q?: string; status?: string; priority?: string; project_id?: number; limit?: number }) =>
+    api.get('/search/', { params }),
+};
+
+// ===== Teams API =====
+export const teamApi = {
+  listMembers: () => api.get('/teams/members'),
+  invite: (data: { email: string; role: string }) => api.post('/teams/invite', data),
+  updateRole: (memberId: number, role: string) => api.put(`/teams/members/${memberId}`, { role }),
+  removeMember: (memberId: number) => api.delete(`/teams/members/${memberId}`),
+};
+
+// ===== Notifications API =====
+export const notificationApi = {
+  list: (params?: { unread_only?: boolean; limit?: number }) =>
+    api.get('/notifications/', { params }),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (notifId: number) => api.put(`/notifications/${notifId}/read`),
+  markAllRead: () => api.put('/notifications/read-all'),
+};
+
 // ===== Analytics API =====
 export const analyticsApi = {
   get: () => api.get('/analytics/'),

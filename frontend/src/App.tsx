@@ -7,17 +7,21 @@ import { ProjectDashboard } from './features/projects/ProjectDashboard';
 import { KanbanBoard } from './features/tasks/KanbanBoard';
 import { AIAssistant } from './features/ai/AIAssistant';
 import { DashboardAnalytics } from './features/analytics/DashboardAnalytics';
+import { TeamMembersPage } from './features/teams/TeamMembersPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Sidebar } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 
-// Layout Wrapper
 const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="flex h-screen bg-surface-0">
+    <div className="flex h-screen bg-surface-0 overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-auto bg-surface-0">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopBar />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };
@@ -47,7 +51,6 @@ function App() {
     if (token) {
       fetchUser();
     } else {
-      // Use useAuthStore.setState directly to update loading if no token
       useAuthStore.setState({ isLoading: false });
     }
   }, [token, fetchUser]);
@@ -59,39 +62,11 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <ProjectDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/analytics"
-            element={
-              <ProtectedRoute>
-                <DashboardAnalytics />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/projects/:projectId/board"
-            element={
-              <ProtectedRoute>
-                <KanbanBoard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/ai"
-            element={
-              <ProtectedRoute>
-                <AIAssistant />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/dashboard" element={<ProtectedRoute><ProjectDashboard /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><DashboardAnalytics /></ProtectedRoute>} />
+          <Route path="/projects/:projectId/board" element={<ProtectedRoute><KanbanBoard /></ProtectedRoute>} />
+          <Route path="/ai" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
+          <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
 
           <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />

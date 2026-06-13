@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { taskApi, projectApi } from '../../services/api';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
@@ -8,6 +8,8 @@ import {
   AlertCircle, Clock, GripVertical, Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { TaskDetailPanel } from './TaskDetailPanel';
+import { useAuthStore } from '../../stores/authStore';
 
 interface Task {
   id: number;
@@ -18,6 +20,7 @@ interface Task {
   due_date: string | null;
   project_id: number;
   assignee_id: number | null;
+  labels?: { id: number; name: string; color: string }[];
 }
 
 interface ProjectInfo {
@@ -44,6 +47,8 @@ const priorityConfig: Record<string, { color: string; bg: string; label: string 
 
 export const KanbanBoard = () => {
   const { projectId } = useParams<{ projectId: string }>();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuthStore();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +56,15 @@ export const KanbanBoard = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string>('ALL');
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+
+  // Open task from URL query param (e.g., from search)
+  useEffect(() => {
+    const taskParam = searchParams.get('task');
+    if (taskParam) {
+      setSelectedTaskId(parseInt(taskParam));
+    }
+  }, [searchParams]);
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
@@ -110,16 +124,6 @@ export const KanbanBoard = () => {
     setFormPriority('MEDIUM');
     setFormStatus(status);
     setFormDueDate('');
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (task: Task) => {
-    setEditingTask(task);
-    setFormTitle(task.title);
-    setFormDesc(task.description || '');
-    setFormPriority(task.priority);
-    setFormStatus(task.status);
-    setFormDueDate(task.due_date ? task.due_date.split('T')[0] : '');
     setIsModalOpen(true);
   };
 
@@ -295,7 +299,7 @@ export const KanbanBoard = () => {
                                     </div>
                                     <h4
                                       className="font-medium text-white text-sm truncate cursor-pointer hover:text-brand-primary transition-colors"
-                                      onClick={() => openEditModal(task)}
+                                      onClick={() => setSelectedTaskId(task.id)}
                                     >
                                       {task.title}
                                     </h4>
@@ -458,6 +462,16 @@ export const KanbanBoard = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Task Detail Panel */}
+      {selectedTaskId && user && (
+        <TaskDetailPanel
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onUpdate={fetchTasks}
+          currentUserId={user.id}
+        />
       )}
     </div>
   );

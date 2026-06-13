@@ -114,6 +114,10 @@ def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Delete associated tasks first (cascade)
+    from models.task import Task
+    db.query(Task).filter(Task.project_id == project_id).delete()
+
     log_activity(
         db,
         user_id=current_user.id,
