@@ -5,8 +5,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from core.config import settings
 from core.rate_limit import limiter
+from core.database import engine, Base
 from api.api import api_router
-from models import User, Organization, Project, Task, ActivityLog
+from models import User, Organization, Project, Task, ActivityLog, Comment, Label, TaskLabel, TeamMember, Notification
 import logging
 import time
 
@@ -71,6 +72,11 @@ async def security_headers(request: Request, call_next):
     return response
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.on_event("startup")
+def startup():
+    Base.metadata.create_all(bind=engine)
 
 
 @app.get("/health")

@@ -5,7 +5,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && rm -f aiflow.db && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: cd backend && find . -name "*.db" -delete && python -c "from core.database import engine, Base; from models import *; Base.metadata.create_all(bind=engine)" && uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: SECRET_KEY
