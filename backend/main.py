@@ -40,8 +40,19 @@ async def catch_exceptions_middleware(request: Request, call_next):
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal Server Error", "error": str(exc)},
-            headers={"Access-Control-Allow-Origin": "*"} # Force CORS header on error
+            headers={"Access-Control-Allow-Origin": "*"}
         )
+
+from fastapi.exceptions import RequestValidationError
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"--- 422 VALIDATION ERROR ---")
+    print(exc.errors())
+    print(exc.body)
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

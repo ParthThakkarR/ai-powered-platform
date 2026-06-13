@@ -1,8 +1,9 @@
-from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
+from typing import Optional
 
-class TaskBase(BaseModel):
+
+class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     status: Optional[str] = "TODO"
@@ -11,8 +12,20 @@ class TaskBase(BaseModel):
     assignee_id: Optional[int] = None
     due_date: Optional[datetime] = None
 
-class TaskCreate(TaskBase):
-    pass
+    @field_validator('due_date', mode='before')
+    @classmethod
+    def fix_due_date(cls, v):
+        if v == "" or v == "undefined":
+            return None
+        return v
+
+    @field_validator('description', mode='before')
+    @classmethod
+    def fix_description(cls, v):
+        if v == "":
+            return None
+        return v
+
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -22,13 +35,25 @@ class TaskUpdate(BaseModel):
     assignee_id: Optional[int] = None
     due_date: Optional[datetime] = None
 
-class TaskInDBBase(TaskBase):
+    @field_validator('due_date', mode='before')
+    @classmethod
+    def fix_due_date(cls, v):
+        if v == "" or v == "undefined":
+            return None
+        return v
+
+
+class Task(BaseModel):
     id: int
-    created_at: datetime
+    title: str
+    description: Optional[str] = None
+    status: Optional[str] = "TODO"
+    priority: Optional[str] = "MEDIUM"
+    project_id: int
+    assignee_id: Optional[int] = None
+    due_date: Optional[datetime] = None
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
-
-class Task(TaskInDBBase):
-    pass
