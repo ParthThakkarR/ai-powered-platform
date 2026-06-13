@@ -30,4 +30,4 @@ services:
     envVars:
       - key: VITE_API_URL
         sync: false
-        value: ""
+        value: "https://aiflow-backend-47ma.onrender.com/api/v1"
