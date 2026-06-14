@@ -14,6 +14,7 @@ class Task(Base):
     
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    sprint_id = Column(Integer, ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True)
     
     due_date = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -21,5 +22,6 @@ class Task(Base):
 
     project = relationship("Project", back_populates="tasks")
     assignee = relationship("User")
+    sprint = relationship("Sprint")
     comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan", order_by="Comment.created_at.desc()")
     labels = relationship("Label", secondary="task_labels", lazy="joined")

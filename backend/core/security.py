@@ -36,3 +36,14 @@ def get_password_hash(password: str) -> str:
         password.encode('utf-8'),
         bcrypt.gensalt()
     ).decode('utf-8')
+
+
+def decode_access_token(token: str) -> dict | None:
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=["HS256"],
+            issuer=settings.JWT_ISSUER, audience=settings.JWT_AUDIENCE,
+        )
+        return payload
+    except Exception:
+        return None

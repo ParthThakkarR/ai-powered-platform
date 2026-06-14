@@ -3,6 +3,7 @@ import { Search, Bell, CheckCheck, Command, Loader2, ArrowRight } from 'lucide-r
 import { searchApi, notificationApi } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ThemeToggle } from './ThemeProvider';
 
 interface SearchResult {
   id: number;
@@ -183,6 +184,9 @@ export const TopBar = () => {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
           {/* Notification Bell */}
           <div className="relative">
             <button

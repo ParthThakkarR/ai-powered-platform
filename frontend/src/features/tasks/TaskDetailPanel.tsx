@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  X, Calendar, MessageSquare,
-  ChevronRight, AlertCircle, Trash2,
+  X, MessageSquare,
+  ChevronRight, AlertCircle, Trash2, CheckSquare,
 } from 'lucide-react';
-import { taskApi } from '../../services/api';
+import { taskApi, teamApi } from '../../services/api';
 import { CommentsSection } from './CommentsSection';
 import { LabelsMultiSelect } from './LabelsMultiSelect';
+import { SubtaskChecklist } from './SubtaskChecklist';
+import { RichTextEditor } from '../../components/RichTextEditor';
 import { toast } from 'sonner';
 
 interface Label {
@@ -27,6 +29,13 @@ interface TaskDetail {
   created_at: string;
   updated_at: string | null;
   labels: Label[];
+}
+
+interface TeamMember {
+  id: number;
+  user_id: number;
+  user_name: string | null;
+  user_email: string | null;
 }
 
 interface TaskDetailPanelProps {
@@ -55,10 +64,12 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
   const [loading, setLoading] = useState(true);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
-  const [activeTab, setActiveTab] = useState<'comments' | 'details'>('comments');
+  const [activeTab, setActiveTab] = useState<'comments' | 'subtasks' | 'details'>('comments');
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
   useEffect(() => {
     fetchTask();
+    teamApi.listMembers().then(res => setTeamMembers(res.data)).catch(() => {});
   }, [taskId]);
 
   const fetchTask = async () => {
@@ -104,6 +115,30 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
       onUpdate();
     } catch {
       toast.error('Failed to update priority');
+    }
+  };
+
+  const handleAssigneeChange = async (newAssigneeId: number | null) => {
+    if (!task) return;
+    try {
+      await taskApi.update(taskId, { assignee_id: newAssigneeId ?? undefined });
+      setTask(prev => prev ? { ...prev, assignee_id: newAssigneeId } : null);
+      onUpdate();
+      toast.success(newAssigneeId ? 'Task reassigned' : 'Assignee removed');
+    } catch {
+      toast.error('Failed to update assignee');
+    }
+  };
+
+  const handleDueDateChange = async (newDate: string | null) => {
+    if (!task) return;
+    try {
+      const dueDateVal = newDate ? `${newDate}T00:00:00Z` : undefined;
+      await taskApi.update(taskId, { due_date: dueDateVal });
+      setTask(prev => prev ? { ...prev, due_date: dueDateVal ?? null } : null);
+      onUpdate();
+    } catch {
+      toast.error('Failed to update due date');
     }
   };
 
@@ -187,13 +222,12 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
 
           {/* Description */}
           <div className="px-4 py-3">
-            <textarea
+            <RichTextEditor
               value={editDesc}
-              onChange={(e) => setEditDesc(e.target.value)}
+              onChange={setEditDesc}
               onBlur={handleSave}
-              rows={3}
-              className="w-full text-sm text-slate-300 bg-transparent border border-glass-border rounded-xl p-3 outline-none focus:ring-2 focus:ring-brand-primary/50 resize-none placeholder-slate-500 transition-all"
               placeholder="Add a description..."
+              rows={4}
             />
           </div>
 
@@ -242,15 +276,34 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
             {/* Due Date */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 w-16 flex-shrink-0">Due</span>
-              {task.due_date ? (
-                <div className={`flex items-center gap-1.5 text-xs ${isOverdue ? 'text-red-400' : 'text-slate-300'}`}>
-                  {isOverdue ? <AlertCircle className="w-3.5 h-3.5" /> : <Calendar className="w-3.5 h-3.5" />}
-                  {new Date(task.due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                  {isOverdue && <span className="text-red-400 font-medium">(overdue)</span>}
-                </div>
-              ) : (
-                <span className="text-xs text-slate-600">No due date</span>
-              )}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
+                  onChange={(e) => handleDueDateChange(e.target.value || null)}
+                  className={`text-xs px-2 py-1 rounded-lg bg-surface-0 border border-glass-border outline-none focus:ring-2 focus:ring-brand-primary/50 ${isOverdue ? 'text-red-400 border-red-500/50' : 'text-slate-300'}`}
+                />
+                {isOverdue && (
+                  <span className="flex items-center gap-1 text-xs text-red-400">
+                    <AlertCircle className="w-3 h-3" /> overdue
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Assignee */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 w-16 flex-shrink-0">Assignee</span>
+              <select
+                value={task.assignee_id ?? ''}
+                onChange={(e) => handleAssigneeChange(e.target.value ? Number(e.target.value) : null)}
+                className="text-xs px-2 py-1 rounded-lg bg-surface-0 border border-glass-border text-slate-300 outline-none focus:ring-2 focus:ring-brand-primary/50 cursor-pointer"
+              >
+                <option value="">Unassigned</option>
+                {teamMembers.map(m => (
+                  <option key={m.user_id} value={m.user_id}>{m.user_name || m.user_email}</option>
+                ))}
+              </select>
             </div>
 
             {/* Labels */}
@@ -280,6 +333,15 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
                 Comments
               </button>
               <button
+                onClick={() => setActiveTab('subtasks')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${
+                  activeTab === 'subtasks' ? 'gradient-brand text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                Subtasks
+              </button>
+              <button
                 onClick={() => setActiveTab('details')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${
                   activeTab === 'details' ? 'gradient-brand text-white' : 'text-slate-400 hover:text-white'
@@ -290,11 +352,17 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
               </button>
             </div>
 
-            {activeTab === 'comments' ? (
+            {activeTab === 'comments' && (
               <div className="pb-4" style={{ minHeight: 300 }}>
                 <CommentsSection taskId={taskId} currentUserId={currentUserId} />
               </div>
-            ) : (
+            )}
+            {activeTab === 'subtasks' && (
+              <div className="pb-4">
+                <SubtaskChecklist taskId={taskId} />
+              </div>
+            )}
+            {activeTab === 'details' && (
               <div className="pb-4 space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Created</span>

@@ -14,6 +14,7 @@ class TaskCreate(BaseModel):
     priority: Optional[str] = "MEDIUM"
     project_id: int
     assignee_id: Optional[int] = None
+    sprint_id: Optional[int] = None
     due_date: Optional[datetime] = None
 
     @field_validator('status', mode='before')
@@ -62,6 +63,7 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None
     priority: Optional[str] = None
     assignee_id: Optional[int] = None
+    sprint_id: Optional[int] = None
     due_date: Optional[datetime] = None
 
     @field_validator('status', mode='before')
@@ -111,6 +113,7 @@ class Task(BaseModel):
     priority: Optional[str] = "MEDIUM"
     project_id: int
     assignee_id: Optional[int] = None
+    sprint_id: Optional[int] = None
     due_date: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

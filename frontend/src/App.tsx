@@ -2,12 +2,18 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from './features/auth/Login';
 import { Register } from './features/auth/Register';
+import { ForgotPassword } from './features/auth/ForgotPassword';
+import { ResetPassword } from './features/auth/ResetPassword';
 import { useAuthStore } from './stores/authStore';
 import { ProjectDashboard } from './features/projects/ProjectDashboard';
 import { KanbanBoard } from './features/tasks/KanbanBoard';
 import { AIAssistant } from './features/ai/AIAssistant';
 import { DashboardAnalytics } from './features/analytics/DashboardAnalytics';
 import { TeamMembersPage } from './features/teams/TeamMembersPage';
+import { ActivityLog } from './features/activity/ActivityLog';
+import { ProfileSettings } from './features/settings/ProfileSettings';
+import { SprintBoard } from './features/sprints/SprintBoard';
+import { ThemeProvider } from './components/ThemeProvider';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -57,21 +63,28 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+      <ThemeProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          <Route path="/dashboard" element={<ProtectedRoute><ProjectDashboard /></ProtectedRoute>} />
-          <Route path="/analytics" element={<ProtectedRoute><DashboardAnalytics /></ProtectedRoute>} />
-          <Route path="/projects/:projectId/board" element={<ProtectedRoute><KanbanBoard /></ProtectedRoute>} />
-          <Route path="/ai" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
-          <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><ProjectDashboard /></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><DashboardAnalytics /></ProtectedRoute>} />
+            <Route path="/projects/:projectId/board" element={<ProtectedRoute><KanbanBoard /></ProtectedRoute>} />
+            <Route path="/projects/:projectId/sprints" element={<ProtectedRoute><SprintBoard /></ProtectedRoute>} />
+            <Route path="/ai" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
+            <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
+            <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
 
-          <Route path="/" element={<Navigate to="/dashboard" />} />
-          <Route path="*" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      </Router>
+            <Route path="/" element={<Navigate to="/dashboard" />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

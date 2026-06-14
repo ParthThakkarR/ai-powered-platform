@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  Activity,
+  Settings,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useState } from 'react';
@@ -19,8 +21,10 @@ export const Sidebar = () => {
   const navItems = [
     { to: '/dashboard', icon: FolderKanban, label: 'Projects' },
     { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+    { to: '/activity', icon: Activity, label: 'Activity' },
     { to: '/team', icon: Users, label: 'Team' },
     { to: '/ai', icon: Bot, label: 'AI Assistant' },
+    { to: '/settings', icon: Settings, label: 'Settings' },
   ];
 
   return (

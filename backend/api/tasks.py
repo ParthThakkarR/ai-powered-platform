@@ -5,6 +5,7 @@ from api import deps
 from schemas.task import Task, TaskCreate, TaskUpdate
 from models.task import Task as TaskModel
 from models.user import User
+from models.notification import Notification
 from services.activity import log_activity
 
 router = APIRouter()
@@ -71,6 +72,15 @@ def create_task(
         details=f"Created task: {task.title}",
     )
 
+    if task_in.assignee_id and task_in.assignee_id != current_user.id:
+        notif = Notification(
+            user_id=task_in.assignee_id,
+            content=f"You have been assigned to task: {task.title}",
+            link=f"/projects/{task.project_id}/board",
+        )
+        db.add(notif)
+        db.commit()
+
     return task
 
 
@@ -91,6 +101,7 @@ def update_task(
 
     update_data = task_in.model_dump(exclude_unset=True)
     old_status = task.status
+    old_assignee_id = task.assignee_id
 
     for field, value in update_data.items():
         setattr(task, field, value)
@@ -98,6 +109,16 @@ def update_task(
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    # Notification when assignee changes
+    if "assignee_id" in update_data and update_data["assignee_id"] and update_data["assignee_id"] != current_user.id:
+        notif = Notification(
+            user_id=update_data["assignee_id"],
+            content=f"You have been assigned to task: {task.title}",
+            link=f"/projects/{task.project_id}/board",
+        )
+        db.add(notif)
+        db.commit()
 
     # Log status transition specifically if it changed
     if "status" in update_data and update_data["status"] != old_status:
@@ -109,6 +130,14 @@ def update_task(
             entity_id=task.id,
             details=f"Status changed: {old_status} → {task.status}",
         )
+        if task.assignee_id and task.assignee_id != current_user.id:
+            notif = Notification(
+                user_id=task.assignee_id,
+                content=f"Task '{task.title}' status changed: {old_status} → {task.status}",
+                link=f"/projects/{task.project_id}/board",
+            )
+            db.add(notif)
+            db.commit()
     else:
         log_activity(
             db,

@@ -4,10 +4,18 @@ from sqlalchemy.orm import Session
 from api import deps
 from schemas.project import Project, ProjectCreate, ProjectUpdate
 from models.project import Project as ProjectModel
+from models.team_member import TeamMember
 from models.user import User
 from services.activity import log_activity
 
 router = APIRouter()
+
+
+def _get_user_org_ids(db: Session, user_id: int) -> list[int]:
+    return [
+        tm.organization_id
+        for tm in db.query(TeamMember.organization_id).filter(TeamMember.user_id == user_id).all()
+    ]
 
 
 @router.get("/", response_model=List[Project])
@@ -17,10 +25,18 @@ def read_projects(
     limit: int = 100,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Retrieve projects.
-    """
-    projects = db.query(ProjectModel).order_by(ProjectModel.id.desc()).offset(skip).limit(limit).all()
+    """Retrieve projects in organizations the user belongs to."""
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if not org_ids:
+        return []
+    projects = (
+        db.query(ProjectModel)
+        .filter(ProjectModel.organization_id.in_(org_ids))
+        .order_by(ProjectModel.id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return projects
 
 
@@ -30,11 +46,12 @@ def get_project(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Get a single project by ID.
-    """
+    """Get a single project by ID (must be in user's org)."""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if project.organization_id not in org_ids and not current_user.is_superuser:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
@@ -46,9 +63,11 @@ def create_project(
     project_in: ProjectCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Create new project.
-    """
+    """Create new project (must be in the target organization)."""
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if project_in.organization_id not in org_ids:
+        raise HTTPException(status_code=403, detail="You are not a member of this organization")
+
     project = ProjectModel(**project_in.model_dump())
     db.add(project)
     db.commit()
@@ -74,12 +93,13 @@ def update_project(
     project_in: ProjectUpdate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Update a project.
-    """
+    """Update a project (must be in the project's org)."""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if project.organization_id not in org_ids and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = project_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -107,14 +127,14 @@ def delete_project(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Delete a project and all its tasks.
-    """
+    """Delete a project and all its tasks (must be in the project's org)."""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if project.organization_id not in org_ids and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Access denied")
 
-    # Delete associated tasks first (cascade)
     from models.task import Task
     db.query(Task).filter(Task.project_id == project_id).delete()
 

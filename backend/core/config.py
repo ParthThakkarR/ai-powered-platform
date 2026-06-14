@@ -27,11 +27,23 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "aiflow"
     JWT_AUDIENCE: str = "aiflow"
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+
     # AI
     OPENAI_API_KEY: str = ""
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
+
+    # SMTP (optional — for email notifications)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+
+    # Frontend URL (for password reset links)
+    FRONTEND_URL: str = "http://localhost:5173"
 
     def model_post_init(self, __context) -> None:
         if not self.SECRET_KEY:

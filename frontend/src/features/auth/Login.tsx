@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { Lock, Mail, AlertCircle, ArrowRight, Zap, BarChart3, Bot } from 'lucide-react';
+import { googleAuthApi } from '../../services/api';
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -35,7 +42,48 @@ export const Login = () => {
     }
   };
 
-  return (
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Google Identity Services
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredentialResponse,
+        });
+        if (googleBtnRef.current) {
+          window.google.accounts.id.renderButton(googleBtnRef.current, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'signin_with',
+          });
+        }
+      }
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  const handleGoogleCredentialResponse = async (response: any) => {
+    try {
+      setError('');
+      setIsLoading(true);
+      const res = await googleAuthApi.login({ id_token: response.credential });
+      await login(res.data.access_token);
+      navigate('/dashboard');
+    } catch {
+      setError('Google login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
     <div className="min-h-screen flex bg-surface-0">
       {/* Left Panel — Branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center">
@@ -145,6 +193,23 @@ export const Login = () => {
                 )}
               </button>
             </form>
+
+            {/* Forgot Password */}
+            <div className="mt-3 text-center">
+              <Link to="/forgot-password" className="text-xs text-slate-500 hover:text-brand-primary transition-colors">
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-glass-border" />
+              <span className="text-xs text-slate-500">or</span>
+              <div className="flex-1 h-px bg-glass-border" />
+            </div>
+
+            {/* Google Login */}
+            <div ref={googleBtnRef} className="w-full" />
 
             <p className="mt-6 text-center text-sm text-slate-400">
               Don't have an account?{' '}

@@ -11,19 +11,34 @@ from services.activity import log_activity
 router = APIRouter()
 
 
+def _get_user_org(db: Session, user_id: int, require_admin: bool = False):
+    """Get the user's primary organization. Optionally require ADMIN role."""
+    membership = (
+        db.query(TeamMember)
+        .filter(TeamMember.user_id == user_id)
+        .order_by(TeamMember.joined_at.asc())
+        .first()
+    )
+    if not membership:
+        return None, None
+    if require_admin and membership.role != "ADMIN":
+        return membership.organization_id, None
+    return membership.organization_id, membership.role
+
+
 @router.get("/members", response_model=List[TeamMemberOut])
 def list_team_members(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get all team members in user's organization."""
-    org = db.query(Organization).first()
-    if not org:
+    org_id, _ = _get_user_org(db, current_user.id)
+    if not org_id:
         return []
 
     members = (
         db.query(TeamMember)
-        .filter(TeamMember.organization_id == org.id)
+        .filter(TeamMember.organization_id == org_id)
         .all()
     )
 
@@ -48,13 +63,13 @@ def invite_member(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Invite a team member by email."""
-    org = db.query(Organization).first()
-    if not org:
-        raise HTTPException(status_code=400, detail="No organization found")
+    org_id, _ = _get_user_org(db, current_user.id, require_admin=True)
+    if not org_id:
+        raise HTTPException(status_code=403, detail="Only admins can invite members")
 
     # Check if user is admin
     admin_member = db.query(TeamMember).filter(
-        TeamMember.organization_id == org.id,
+        TeamMember.organization_id == org_id,
         TeamMember.user_id == current_user.id,
         TeamMember.role == "ADMIN",
     ).first()
@@ -68,14 +83,14 @@ def invite_member(
 
     # Check if already a member
     existing = db.query(TeamMember).filter(
-        TeamMember.organization_id == org.id,
+        TeamMember.organization_id == org_id,
         TeamMember.user_id == user.id,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="User is already a team member")
 
     member = TeamMember(
-        organization_id=org.id,
+        organization_id=org_id,
         user_id=user.id,
         role=invite_in.role,
     )
@@ -88,7 +103,7 @@ def invite_member(
         user_id=current_user.id,
         action="MEMBER_INVITED",
         entity_type="Organization",
-        entity_id=org.id,
+        entity_id=org_id,
         details=f"Invited {user.email} as {invite_in.role}",
     )
 
@@ -103,12 +118,12 @@ def update_member_role(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Update a team member's role."""
-    org = db.query(Organization).first()
-    if not org:
+    org_id, _ = _get_user_org(db, current_user.id)
+    if not org_id:
         raise HTTPException(status_code=400, detail="No organization found")
 
     admin_member = db.query(TeamMember).filter(
-        TeamMember.organization_id == org.id,
+        TeamMember.organization_id == org_id,
         TeamMember.user_id == current_user.id,
         TeamMember.role == "ADMIN",
     ).first()
@@ -141,12 +156,12 @@ def remove_member(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Remove a team member."""
-    org = db.query(Organization).first()
-    if not org:
+    org_id, _ = _get_user_org(db, current_user.id)
+    if not org_id:
         raise HTTPException(status_code=400, detail="No organization found")
 
     admin_member = db.query(TeamMember).filter(
-        TeamMember.organization_id == org.id,
+        TeamMember.organization_id == org_id,
         TeamMember.user_id == current_user.id,
         TeamMember.role == "ADMIN",
     ).first()

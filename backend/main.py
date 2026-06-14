@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -7,7 +7,9 @@ from core.config import settings
 from core.rate_limit import limiter
 from core.database import engine, Base
 from api.api import api_router
-from models import User, Organization, Project, Task, ActivityLog, Comment, Label, TaskLabel, TeamMember, Notification
+from models import User, Organization, Project, Task, ActivityLog, Comment, Label, TaskLabel, TeamMember, Notification, Subtask, Sprint, Attachment, PasswordReset
+from services.websocket_manager import manager
+from core.security import decode_access_token
 import logging
 import time
 
@@ -82,3 +84,26 @@ def startup():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001)
+        return
+    payload = decode_access_token(token)
+    if not payload:
+        await websocket.close(code=4001)
+        return
+    user_id = payload.get("sub")
+    if not user_id:
+        await websocket.close(code=4001)
+        return
+    user_id = int(user_id)
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)

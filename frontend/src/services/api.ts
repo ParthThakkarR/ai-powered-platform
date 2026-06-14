@@ -130,4 +130,74 @@ export const notificationApi = {
 // ===== Analytics API =====
 export const analyticsApi = {
   get: () => api.get('/analytics/'),
+  getProject: (projectId: number) => api.get(`/analytics/project/${projectId}`),
+  getBurndown: (sprintId: number) => api.get(`/analytics/sprint/${sprintId}/burndown`),
+  getVelocity: (sprintId: number) => api.get(`/analytics/sprint/${sprintId}/velocity`),
+};
+
+// ===== Activity API =====
+export const activityApi = {
+  list: (params?: { project_id?: number; task_id?: number; limit?: number }) =>
+    api.get('/activity/', { params }),
+};
+
+// ===== User Profile API =====
+export const userProfileApi = {
+  get: () => api.get('/auth/me'),
+  update: (data: { full_name?: string; email?: string; password?: string }) =>
+    api.put('/auth/me', data),
+};
+
+// ===== Password Reset API =====
+export const passwordResetApi = {
+  forgot: (email: string) => api.post('/auth/forgot-password', { email }),
+  reset: (token: string, newPassword: string) => api.post('/auth/reset-password', { token, new_password: newPassword }),
+};
+
+// ===== Google Auth API =====
+export const googleAuthApi = {
+  login: (data: { id_token: string }) =>
+    api.post('/auth/google-login', data),
+};
+
+// ===== Sprint API =====
+export const sprintApi = {
+  listByProject: (projectId: number) => api.get(`/sprints/project/${projectId}`),
+  create: (projectId: number, data: { name: string; goal?: string; start_date: string; end_date: string; is_active?: boolean }) =>
+    api.post(`/sprints/project/${projectId}`, data),
+  update: (sprintId: number, data: { name?: string; goal?: string; start_date?: string; end_date?: string; is_active?: boolean }) =>
+    api.put(`/sprints/${sprintId}`, data),
+  delete: (sprintId: number) => api.delete(`/sprints/${sprintId}`),
+  addTask: (sprintId: number, taskId: number) => api.post(`/sprints/${sprintId}/tasks/${taskId}`),
+  removeTask: (sprintId: number, taskId: number) => api.delete(`/sprints/${sprintId}/tasks/${taskId}`),
+};
+
+// ===== Attachment API =====
+export const attachmentApi = {
+  listByTask: (taskId: number) => api.get(`/attachments/task/${taskId}`),
+  upload: (taskId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/attachments/task/${taskId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  download: (attachmentId: number) => {
+    const token = localStorage.getItem('token');
+    window.open(
+      `${api.defaults.baseURL}/attachments/download/${attachmentId}?token=${token}`,
+      '_blank'
+    );
+  },
+  delete: (attachmentId: number) => api.delete(`/attachments/${attachmentId}`),
+};
+
+// ===== Subtask API =====
+export const subtaskApi = {
+  listByTask: (taskId: number) => api.get(`/subtasks/task/${taskId}`),
+  create: (taskId: number, data: { title: string; position?: number }) =>
+    api.post(`/subtasks/task/${taskId}`, data),
+  update: (subtaskId: number, data: { title?: string; is_completed?: boolean; position?: number }) =>
+    api.put(`/subtasks/${subtaskId}`, data),
+  delete: (subtaskId: number) => api.delete(`/subtasks/${subtaskId}`),
 };

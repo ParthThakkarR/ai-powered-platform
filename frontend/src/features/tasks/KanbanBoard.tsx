@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { taskApi, projectApi } from '../../services/api';
+import { taskApi, projectApi, teamApi } from '../../services/api';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { DropResult } from '@hello-pangea/dnd';
 import {
   Plus, X, Loader2, ArrowLeft, Trash2, Calendar,
-  AlertCircle, Clock, GripVertical, Filter,
+  AlertCircle, Clock, GripVertical, Filter, Target,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskDetailPanel } from './TaskDetailPanel';
@@ -21,6 +21,13 @@ interface Task {
   project_id: number;
   assignee_id: number | null;
   labels?: { id: number; name: string; color: string }[];
+}
+
+interface TeamMember {
+  id: number;
+  user_id: number;
+  user_name: string | null;
+  user_email: string | null;
 }
 
 interface ProjectInfo {
@@ -57,6 +64,9 @@ export const KanbanBoard = () => {
   const [creating, setCreating] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string>('ALL');
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
 
   // Open task from URL query param (e.g., from search)
   useEffect(() => {
@@ -72,6 +82,7 @@ export const KanbanBoard = () => {
   const [formPriority, setFormPriority] = useState('MEDIUM');
   const [formStatus, setFormStatus] = useState('TODO');
   const [formDueDate, setFormDueDate] = useState('');
+  const [formAssigneeId, setFormAssigneeId] = useState<number | null>(null);
 
   const fetchTasks = useCallback(async () => {
     if (!projectId) return;
@@ -94,6 +105,10 @@ export const KanbanBoard = () => {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  useEffect(() => {
+    teamApi.listMembers().then(res => setTeamMembers(res.data)).catch(() => {});
+  }, []);
 
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -124,6 +139,7 @@ export const KanbanBoard = () => {
     setFormPriority('MEDIUM');
     setFormStatus(status);
     setFormDueDate('');
+    setFormAssigneeId(null);
     setIsModalOpen(true);
   };
 
@@ -138,6 +154,7 @@ export const KanbanBoard = () => {
         priority: formPriority,
         status: formStatus,
         due_date: formDueDate ? `${formDueDate}T00:00:00Z` : null,
+        assignee_id: formAssigneeId,
       };
 
       if (editingTask) {
@@ -177,6 +194,53 @@ export const KanbanBoard = () => {
   const filteredTasks = filterPriority === 'ALL'
     ? tasks
     : tasks.filter(t => t.priority === filterPriority);
+
+  const toggleTaskSelection = (taskId: number) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const selectAllTasks = () => {
+    if (selectedTaskIds.size === filteredTasks.length) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(filteredTasks.map(t => t.id)));
+    }
+  };
+
+  const handleBulkMove = async (newStatus: string) => {
+    const ids = Array.from(selectedTaskIds);
+    if (ids.length === 0) return;
+    // Optimistic update
+    setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, status: newStatus } : t));
+    try {
+      await Promise.all(ids.map(id => taskApi.update(id, { status: newStatus })));
+      toast.success(`${ids.length} task(s) moved to ${COLUMNS.find(c => c.id === newStatus)?.title}`);
+      setSelectedTaskIds(new Set());
+    } catch {
+      fetchTasks();
+      toast.error('Failed to move tasks');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedTaskIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} task(s)? This cannot be undone.`)) return;
+    try {
+      await Promise.all(ids.map(id => taskApi.delete(id)));
+      setTasks(prev => prev.filter(t => !ids.includes(t.id)));
+      toast.success(`${ids.length} task(s) deleted`);
+      setSelectedTaskIds(new Set());
+    } catch {
+      fetchTasks();
+      toast.error('Failed to delete tasks');
+    }
+  };
 
   if (loading) {
     return (
@@ -225,6 +289,26 @@ export const KanbanBoard = () => {
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           </div>
 
+          {/* Bulk Mode Toggle */}
+          <button
+            onClick={() => { setBulkMode(!bulkMode); setSelectedTaskIds(new Set()); }}
+            className={`px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+              bulkMode
+                ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30'
+                : 'bg-surface-1 border border-glass-border text-slate-300 hover:text-white'
+            }`}
+          >
+            {bulkMode ? 'Exit Select' : 'Select'}
+          </button>
+
+          <Link
+            to={`/projects/${projectId}/sprints`}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-1 border border-glass-border text-slate-300 hover:text-white transition-all text-sm font-semibold"
+          >
+            <Target className="w-4 h-4" />
+            Sprints
+          </Link>
+
           <button
             id="add-task-btn"
             onClick={() => openCreateModal()}
@@ -235,6 +319,33 @@ export const KanbanBoard = () => {
           </button>
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {bulkMode && selectedTaskIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-brand-primary/10 rounded-xl border border-brand-primary/20 flex-shrink-0">
+          <span className="text-sm text-brand-primary font-semibold">{selectedTaskIds.size} selected</span>
+          <button onClick={selectAllTasks} className="text-xs text-slate-400 hover:text-white transition-colors">
+            {selectedTaskIds.size === filteredTasks.length ? 'Deselect All' : 'Select All'}
+          </button>
+          <div className="flex-1" />
+          <span className="text-xs text-slate-500">Move to:</span>
+          {COLUMNS.map(c => (
+            <button
+              key={c.id}
+              onClick={() => handleBulkMove(c.id)}
+              className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all bg-surface-1 border border-glass-border text-slate-300 hover:text-white hover:bg-glass-white`}
+            >
+              {c.title}
+            </button>
+          ))}
+          <button
+            onClick={handleBulkDelete}
+            className="text-xs px-2.5 py-1 rounded-lg font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all"
+          >
+            Delete
+          </button>
+        </div>
+      )}
 
       {/* Kanban Columns */}
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -291,25 +402,36 @@ export const KanbanBoard = () => {
                                 {/* Drag Handle + Actions */}
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <div
-                                      {...provided.dragHandleProps}
-                                      className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-600 mt-0.5"
-                                    >
-                                      <GripVertical className="w-4 h-4" />
-                                    </div>
+                                    {bulkMode ? (
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedTaskIds.has(task.id)}
+                                        onChange={() => toggleTaskSelection(task.id)}
+                                        className="w-4 h-4 rounded border-glass-border text-brand-primary focus:ring-brand-primary/50 bg-surface-0 cursor-pointer"
+                                      />
+                                    ) : (
+                                      <div
+                                        {...provided.dragHandleProps}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-600 mt-0.5"
+                                      >
+                                        <GripVertical className="w-4 h-4" />
+                                      </div>
+                                    )}
                                     <h4
                                       className="font-medium text-white text-sm truncate cursor-pointer hover:text-brand-primary transition-colors"
-                                      onClick={() => setSelectedTaskId(task.id)}
+                                      onClick={() => !bulkMode && setSelectedTaskId(task.id)}
                                     >
                                       {task.title}
                                     </h4>
                                   </div>
-                                  <button
-                                    onClick={() => handleDelete(task.id, task.title)}
-                                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  {!bulkMode && (
+                                    <button
+                                      onClick={() => handleDelete(task.id, task.title)}
+                                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
 
                                 {/* Description */}
@@ -319,17 +441,26 @@ export const KanbanBoard = () => {
                                   </p>
                                 )}
 
-                                {/* Footer: Priority + Due Date */}
+                                {/* Footer: Priority + Due Date + Assignee */}
                                 <div className="flex items-center justify-between pl-6">
                                   <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${pConfig.bg} ${pConfig.color}`}>
                                     {pConfig.label}
                                   </span>
-                                  {task.due_date && (
-                                    <div className={`flex items-center gap-1 text-xs ${overdue ? 'text-red-400' : 'text-slate-500'}`}>
-                                      {overdue ? <AlertCircle className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
-                                      {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </div>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {task.due_date && (
+                                      <div className={`flex items-center gap-1 text-xs ${overdue ? 'text-red-400' : 'text-slate-500'}`}>
+                                        {overdue ? <AlertCircle className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
+                                        {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                      </div>
+                                    )}
+                                    {task.assignee_id && (
+                                      <div className="w-5 h-5 rounded-full bg-brand-primary/20 flex items-center justify-center" title={`Assigned to user #${task.assignee_id}`}>
+                                        <span className="text-[9px] font-bold text-brand-primary">
+                                          U{task.assignee_id}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -433,6 +564,22 @@ export const KanbanBoard = () => {
                     className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-0 border border-glass-border text-white text-sm focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none"
                   />
                 </div>
+              </div>
+
+              {/* Assignee */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Assignee</label>
+                <select
+                  id="task-assignee-select"
+                  value={formAssigneeId ?? ''}
+                  onChange={(e) => setFormAssigneeId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-4 py-3 rounded-xl bg-surface-0 border border-glass-border text-white text-sm focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary outline-none cursor-pointer"
+                >
+                  <option value="">Unassigned</option>
+                  {teamMembers.map(m => (
+                    <option key={m.user_id} value={m.user_id}>{m.user_name || m.user_email}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Actions */}

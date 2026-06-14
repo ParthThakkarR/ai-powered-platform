@@ -4,10 +4,19 @@ from sqlalchemy.orm import Session
 from api import deps
 from schemas.organization import OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from models.organization import Organization as OrganizationModel
+from models.team_member import TeamMember
 from models.user import User
 from services.activity import log_activity
 
 router = APIRouter()
+
+
+def _get_user_org_ids(db: Session, user_id: int) -> list[int]:
+    """Return organization IDs the user belongs to."""
+    return [
+        tm.organization_id
+        for tm in db.query(TeamMember.organization_id).filter(TeamMember.user_id == user_id).all()
+    ]
 
 
 @router.get("/", response_model=List[OrganizationResponse])
@@ -17,9 +26,13 @@ def list_organizations(
     limit: int = 100,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """List all organizations."""
+    """List organizations the current user belongs to."""
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if not org_ids:
+        return []
     orgs = (
         db.query(OrganizationModel)
+        .filter(OrganizationModel.id.in_(org_ids))
         .order_by(OrganizationModel.id.desc())
         .offset(skip)
         .limit(limit)
@@ -34,7 +47,10 @@ def get_organization(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Get a single organization by ID."""
+    """Get a single organization by ID (must be a member)."""
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if org_id not in org_ids and not current_user.is_superuser:
+        raise HTTPException(status_code=404, detail="Organization not found")
     org = db.query(OrganizationModel).filter(OrganizationModel.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -48,9 +64,17 @@ def create_organization(
     org_in: OrganizationCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Create a new organization."""
+    """Create a new organization and add the creator as ADMIN."""
     org = OrganizationModel(**org_in.model_dump())
     db.add(org)
+    db.flush()
+
+    member = TeamMember(
+        organization_id=org.id,
+        user_id=current_user.id,
+        role="ADMIN",
+    )
+    db.add(member)
     db.commit()
     db.refresh(org)
 
@@ -74,7 +98,20 @@ def update_organization(
     org_in: OrganizationUpdate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Update an organization."""
+    """Update an organization (must be ADMIN)."""
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if org_id not in org_ids:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    from models.team_member import TeamMember as TM
+    is_admin = db.query(TM).filter(
+        TM.organization_id == org_id,
+        TM.user_id == current_user.id,
+        TM.role == "ADMIN",
+    ).first()
+    if not is_admin and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Only admins can update organizations")
+
     org = db.query(OrganizationModel).filter(OrganizationModel.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -105,7 +142,20 @@ def delete_organization(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Delete an organization and its associated projects."""
+    """Delete an organization (must be ADMIN)."""
+    org_ids = _get_user_org_ids(db, current_user.id)
+    if org_id not in org_ids:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    from models.team_member import TeamMember as TM
+    is_admin = db.query(TM).filter(
+        TM.organization_id == org_id,
+        TM.user_id == current_user.id,
+        TM.role == "ADMIN",
+    ).first()
+    if not is_admin and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Only admins can delete organizations")
+
     org = db.query(OrganizationModel).filter(OrganizationModel.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
