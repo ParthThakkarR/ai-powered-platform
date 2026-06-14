@@ -84,6 +84,8 @@ export const Login = () => {
       setIsLoading(false);
     }
   };
+
+  return (
     <div className="min-h-screen flex bg-surface-0">
       {/* Left Panel — Branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center">

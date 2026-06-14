@@ -2,19 +2,23 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { passwordResetApi } from '../../services/api';
 import { toast } from 'sonner';
-import { Mail, Loader2, ArrowLeft, Zap } from 'lucide-react';
+import { Mail, Loader2, ArrowLeft, Zap, ExternalLink } from 'lucide-react';
 
 export const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [resetUrl, setResetUrl] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await passwordResetApi.forgot(email);
+      const res = await passwordResetApi.forgot(email);
       setSent(true);
+      if (res.data.reset_url) {
+        setResetUrl(res.data.reset_url);
+      }
     } catch {
       toast.error('Something went wrong');
     } finally {
@@ -41,6 +45,18 @@ export const ForgotPassword = () => {
               <p className="text-sm text-slate-400 mb-6">
                 If an account exists with <span className="text-white">{email}</span>, we've sent a password reset link.
               </p>
+              {resetUrl && (
+                <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-xs text-emerald-300 mb-2">SMTP not configured. Use this link:</p>
+                  <a
+                    href={resetUrl}
+                    className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 break-all"
+                  >
+                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                    Reset Password
+                  </a>
+                </div>
+              )}
               <Link to="/login" className="text-brand-primary font-semibold hover:text-brand-secondary text-sm">
                 Back to Login
               </Link>

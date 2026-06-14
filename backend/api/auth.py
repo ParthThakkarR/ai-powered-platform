@@ -115,9 +115,14 @@ def forgot_password(
     db.commit()
 
     reset_url = f"{request.base_url.origin}/reset-password?token={token}"
-    send_password_reset_email(user.email, reset_url)
+    email_sent = send_password_reset_email(user.email, reset_url)
 
-    return {"message": "If an account exists, a reset email has been sent."}
+    response: dict[str, Any] = {"message": "If an account exists, a reset email has been sent."}
+    if not email_sent:
+        # Dev fallback: include reset link in response when SMTP is not configured
+        response["reset_url"] = reset_url
+        response["note"] = "SMTP not configured. Use this link to reset your password."
+    return response
 
 
 @router.post("/reset-password")
