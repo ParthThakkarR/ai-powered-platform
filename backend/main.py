@@ -29,6 +29,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS
 origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
+    origins.append(settings.FRONTEND_URL)
+logger.info(f"CORS allowed origins: {origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

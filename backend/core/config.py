@@ -1,7 +1,9 @@
 from typing import List
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 import os
 import secrets
+import json
 
 
 class Settings(BaseSettings):
@@ -10,6 +12,18 @@ class Settings(BaseSettings):
 
     # CORS - restrict in production
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     # Database
     DATABASE_URL: str = f"sqlite:///{os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'aiflow.db'))}"
