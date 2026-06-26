@@ -18,8 +18,30 @@ export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const callbackRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'github-login') {
+        if (event.data.success) {
+          navigate('/dashboard');
+        } else {
+          setError('GitHub login failed');
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [navigate]);
 
   const handleGoogleCredentialResponse = useCallback(async (response: any) => {
     try {
@@ -151,10 +173,11 @@ export const Login = () => {
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <input
-                    id="login-email"
-                    type="email"
-                    required
+                    <input
+                      id="login-email"
+                      type="email"
+                      autoComplete="username"
+                      required
                     className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-1 border border-glass-border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all text-sm"
                     placeholder="you@company.com"
                     value={email}
