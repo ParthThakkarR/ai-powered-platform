@@ -14,9 +14,10 @@ interface LabelsMultiSelectProps {
   taskId: number;
   selectedLabels: Label[];
   onLabelsChange: (labels: Label[]) => void;
+  readOnly?: boolean;
 }
 
-export const LabelsMultiSelect = ({ taskId, selectedLabels, onLabelsChange }: LabelsMultiSelectProps) => {
+export const LabelsMultiSelect = ({ taskId, selectedLabels, onLabelsChange, readOnly }: LabelsMultiSelectProps) => {
   const [allLabels, setAllLabels] = useState<Label[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -76,11 +77,11 @@ export const LabelsMultiSelect = ({ taskId, selectedLabels, onLabelsChange }: La
   return (
     <div className="relative">
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-0 border border-glass-border text-sm text-slate-300 hover:border-brand-primary/50 transition-all w-full"
+        onClick={() => !readOnly && setShowDropdown(!showDropdown)}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-0 border border-glass-border text-sm transition-all w-full ${readOnly ? 'text-slate-400 cursor-default' : 'text-slate-300 hover:border-brand-primary/50'}`}
       >
         <Tag className="w-4 h-4 text-slate-500" />
-        <span>{selectedLabels.length > 0 ? `${selectedLabels.length} label(s)` : 'Add labels'}</span>
+        <span>{selectedLabels.length > 0 ? `${selectedLabels.length} label(s)` : 'Labels'}</span>
       </button>
 
       {selectedLabels.length > 0 && (
@@ -88,12 +89,12 @@ export const LabelsMultiSelect = ({ taskId, selectedLabels, onLabelsChange }: La
           {selectedLabels.map(label => (
             <span
               key={label.id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white cursor-pointer hover:opacity-80 transition"
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white ${readOnly ? '' : 'cursor-pointer hover:opacity-80'} transition`}
               style={{ backgroundColor: label.color }}
-              onClick={() => toggleLabel(label)}
+              onClick={() => !readOnly && toggleLabel(label)}
             >
               {label.name}
-              <X className="w-3 h-3" />
+              {!readOnly && <X className="w-3 h-3" />}
             </span>
           ))}
         </div>

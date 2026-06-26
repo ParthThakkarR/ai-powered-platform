@@ -1,29 +1,15 @@
 from typing import List
-from pydantic import field_validator
 from pydantic_settings import BaseSettings
 import os
 import secrets
-import json
 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AIFlow API"
     API_V1_STR: str = "/api/v1"
 
-    # CORS - restrict in production
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
-
-    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            try:
-                parsed = json.loads(v)
-                if isinstance(parsed, list):
-                    return parsed
-            except json.JSONDecodeError:
-                return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    # CORS
+    BACKEND_CORS_ORIGINS: str = '["http://localhost:5173","http://localhost:3000"]'
 
     # Database
     DATABASE_URL: str = f"sqlite:///{os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'aiflow.db'))}"
@@ -33,7 +19,7 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
-    # Security - MUST be set in production
+    # Security
     SECRET_KEY: str = ""
 
     # JWT
@@ -44,19 +30,23 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
 
+    # GitHub OAuth
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+
     # AI
     OPENAI_API_KEY: str = ""
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
 
-    # SMTP (optional — for email notifications)
+    # SMTP
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
 
-    # Frontend URL (for password reset links)
+    # Frontend URL
     FRONTEND_URL: str = "http://localhost:5173"
 
     def model_post_init(self, __context) -> None:

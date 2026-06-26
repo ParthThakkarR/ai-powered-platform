@@ -6,6 +6,8 @@ interface User {
   email: string;
   full_name: string;
   is_superuser: boolean;
+  organization_id?: number | null;
+  role?: 'ADMIN' | 'MEMBER' | 'VIEWER' | null;
 }
 
 interface AuthState {

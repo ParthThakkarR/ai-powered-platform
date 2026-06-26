@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, UserPlus, Trash2, Shield, ShieldCheck, Eye, X, Loader2 } from 'lucide-react';
 import { teamApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+import { useUserRole } from '../../hooks/useUserRole';
 import { toast } from 'sonner';
 
 interface TeamMember {
@@ -22,6 +23,7 @@ const roleConfig: Record<string, { icon: typeof Shield; color: string; label: st
 
 export const TeamMembersPage = () => {
   const { user } = useAuthStore();
+  const { isAdmin } = useUserRole();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
@@ -95,13 +97,15 @@ export const TeamMembersPage = () => {
             <p className="text-sm text-slate-400">{members.length} member{members.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowInvite(true)}
-          className="flex items-center gap-2 gradient-brand text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
-        >
-          <UserPlus className="w-4 h-4" />
-          Invite Member
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowInvite(true)}
+            className="flex items-center gap-2 gradient-brand text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            Invite Member
+          </button>
+        )}
       </div>
 
       {/* Members List */}
@@ -138,7 +142,7 @@ export const TeamMembersPage = () => {
                     <RoleIcon className="w-3.5 h-3.5" />
                     <span className="text-xs font-medium">{cfg.label}</span>
                   </div>
-                  {!isCurrentUser && (
+                  {!isCurrentUser && isAdmin && (
                     <>
                       <select
                         value={member.role}

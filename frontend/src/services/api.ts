@@ -160,6 +160,12 @@ export const googleAuthApi = {
     api.post('/auth/google-login', data),
 };
 
+// ===== GitHub Auth API =====
+export const githubAuthApi = {
+  login: (code: string) =>
+    api.post('/auth/github', { code }),
+};
+
 // ===== Sprint API =====
 export const sprintApi = {
   listByProject: (projectId: number) => api.get(`/sprints/project/${projectId}`),

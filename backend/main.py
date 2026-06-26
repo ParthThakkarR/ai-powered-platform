@@ -12,11 +12,10 @@ from services.websocket_manager import manager
 from core.security import decode_access_token
 import logging
 import time
+import json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("aiflow")
-
-# Rate limiter
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,20 +26,27 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS
-origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+# CORS - parse from env string
+try:
+    origins = json.loads(settings.BACKEND_CORS_ORIGINS)
+except (json.JSONDecodeError, TypeError):
+    origins = [o.strip() for o in settings.BACKEND_CORS_ORIGINS.split(",") if o.strip()]
+
+# Always include frontend URL
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
     origins.append(settings.FRONTEND_URL)
+
 logger.info(f"CORS allowed origins: {origins}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Request timing + error handling
+# Request timing
 @app.middleware("http")
 async def middleware(request: Request, call_next):
     start = time.time()

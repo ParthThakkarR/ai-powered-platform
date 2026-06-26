@@ -3,6 +3,7 @@ import { projectApi, taskApi, orgApi } from '../../services/api';
 import { Link } from 'react-router-dom';
 import { Folder, Plus, X, Loader2, Trash2, BarChart3, CheckCircle, Clock, AlertTriangle, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUserRole } from '../../hooks/useUserRole';
 
 interface Project {
   id: number;
@@ -20,6 +21,7 @@ interface TaskSummary {
 }
 
 export const ProjectDashboard = () => {
+  const { canEdit, canDelete } = useUserRole();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -172,14 +174,16 @@ export const ProjectDashboard = () => {
           <h1 className="text-3xl font-bold text-white mb-1">Projects</h1>
           <p className="text-slate-400">Manage your engineering workflows and team goals.</p>
         </div>
-        <button
-          id="new-project-btn"
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 gradient-brand text-white px-5 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          New Project
-        </button>
+        {canEdit && (
+          <button
+            id="new-project-btn"
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 gradient-brand text-white px-5 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            New Project
+          </button>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -242,20 +246,24 @@ export const ProjectDashboard = () => {
                     <h2 className="text-lg font-bold text-white group-hover:text-brand-primary transition-colors">{project.name}</h2>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button
-                      onClick={(e) => openEditModal(e, project)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-brand-primary hover:bg-brand-primary/10 transition-all"
-                      title="Edit project"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteProject(e, project.id, project.name)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                      title="Delete project"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={(e) => openEditModal(e, project)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-brand-primary hover:bg-brand-primary/10 transition-all"
+                        title="Edit project"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={(e) => handleDeleteProject(e, project.id, project.name)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        title="Delete project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -297,13 +305,15 @@ export const ProjectDashboard = () => {
               </div>
               <h3 className="text-lg font-bold text-white mb-2">No projects yet</h3>
               <p className="text-slate-400 mb-6">Create your first project to start optimizing your workflow.</p>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center gap-2 text-brand-primary font-semibold hover:text-brand-secondary transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Create Project
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="inline-flex items-center gap-2 text-brand-primary font-semibold hover:text-brand-secondary transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Project
+                </button>
+              )}
             </div>
           )}
         </div>

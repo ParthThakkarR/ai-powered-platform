@@ -4,6 +4,7 @@ import { Login } from './features/auth/Login';
 import { Register } from './features/auth/Register';
 import { ForgotPassword } from './features/auth/ForgotPassword';
 import { ResetPassword } from './features/auth/ResetPassword';
+import { GitHubCallback } from './features/auth/GitHubCallback';
 import { useAuthStore } from './stores/authStore';
 import { ProjectDashboard } from './features/projects/ProjectDashboard';
 import { KanbanBoard } from './features/tasks/KanbanBoard';
@@ -70,6 +71,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback/github" element={<GitHubCallback />} />
 
             <Route path="/dashboard" element={<ProtectedRoute><ProjectDashboard /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><DashboardAnalytics /></ProtectedRoute>} />

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from api import deps
 from schemas.task import Task, TaskCreate, TaskUpdate
 from models.task import Task as TaskModel
+from models.project import Project
 from models.user import User
 from models.notification import Notification
 from services.activity import log_activity
@@ -19,9 +20,9 @@ def read_tasks_by_project(
     limit: int = 100,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Retrieve tasks for a specific project.
-    """
+    org_id = deps.get_project_org_id(db, project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "VIEWER", current_user.is_superuser)
+
     tasks = (
         db.query(TaskModel)
         .filter(TaskModel.project_id == project_id)
@@ -39,12 +40,13 @@ def get_task(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Get a single task by ID.
-    """
     task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    org_id = deps.get_project_org_id(db, task.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "VIEWER", current_user.is_superuser)
+
     return task
 
 
@@ -55,9 +57,9 @@ def create_task(
     task_in: TaskCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Create new task.
-    """
+    org_id = deps.get_project_org_id(db, task_in.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "MEMBER", current_user.is_superuser)
+
     task = TaskModel(**task_in.model_dump())
     db.add(task)
     db.commit()
@@ -92,12 +94,12 @@ def update_task(
     task_in: TaskUpdate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Update a task status or details.
-    """
     task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    org_id = deps.get_project_org_id(db, task.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "MEMBER", current_user.is_superuser)
 
     update_data = task_in.model_dump(exclude_unset=True)
     old_status = task.status
@@ -110,7 +112,6 @@ def update_task(
     db.commit()
     db.refresh(task)
 
-    # Notification when assignee changes
     if "assignee_id" in update_data and update_data["assignee_id"] and update_data["assignee_id"] != current_user.id:
         notif = Notification(
             user_id=update_data["assignee_id"],
@@ -120,7 +121,6 @@ def update_task(
         db.add(notif)
         db.commit()
 
-    # Log status transition specifically if it changed
     if "status" in update_data and update_data["status"] != old_status:
         log_activity(
             db,
@@ -157,12 +157,12 @@ def delete_task(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Delete a task.
-    """
     task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    org_id = deps.get_project_org_id(db, task.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "ADMIN", current_user.is_superuser)
 
     log_activity(
         db,

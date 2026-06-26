@@ -27,7 +27,8 @@ class UserInDBBase(UserBase):
 
 
 class User(UserInDBBase):
-    pass
+    organization_id: Optional[int] = None
+    role: Optional[Literal["ADMIN", "MEMBER", "VIEWER"]] = None
 
 
 class UserInDB(UserInDBBase):

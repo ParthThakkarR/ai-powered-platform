@@ -63,10 +63,8 @@ def create_project(
     project_in: ProjectCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Create new project (must be in the target organization)."""
-    org_ids = _get_user_org_ids(db, current_user.id)
-    if project_in.organization_id not in org_ids:
-        raise HTTPException(status_code=403, detail="You are not a member of this organization")
+    """Create new project (must be MEMBER or ADMIN in the target organization)."""
+    deps.verify_org_role(db, current_user.id, project_in.organization_id, "MEMBER", current_user.is_superuser)
 
     project = ProjectModel(**project_in.model_dump())
     db.add(project)
@@ -93,13 +91,12 @@ def update_project(
     project_in: ProjectUpdate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Update a project (must be in the project's org)."""
+    """Update a project (must be MEMBER or ADMIN in the project's org)."""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    org_ids = _get_user_org_ids(db, current_user.id)
-    if project.organization_id not in org_ids and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Access denied")
+
+    deps.verify_org_role(db, current_user.id, project.organization_id, "MEMBER", current_user.is_superuser)
 
     update_data = project_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -127,13 +124,12 @@ def delete_project(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """Delete a project and all its tasks (must be in the project's org)."""
+    """Delete a project and all its tasks (must be ADMIN in the project's org)."""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    org_ids = _get_user_org_ids(db, current_user.id)
-    if project.organization_id not in org_ids and not current_user.is_superuser:
-        raise HTTPException(status_code=403, detail="Access denied")
+
+    deps.verify_org_role(db, current_user.id, project.organization_id, "ADMIN", current_user.is_superuser)
 
     from models.task import Task
     db.query(Task).filter(Task.project_id == project_id).delete()

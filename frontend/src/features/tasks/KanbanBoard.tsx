@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { useAuthStore } from '../../stores/authStore';
+import { useUserRole } from '../../hooks/useUserRole';
 
 interface Task {
   id: number;
@@ -56,6 +57,7 @@ export const KanbanBoard = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
+  const { canEdit, canDelete } = useUserRole();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -290,16 +292,18 @@ export const KanbanBoard = () => {
           </div>
 
           {/* Bulk Mode Toggle */}
-          <button
-            onClick={() => { setBulkMode(!bulkMode); setSelectedTaskIds(new Set()); }}
-            className={`px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
-              bulkMode
-                ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30'
-                : 'bg-surface-1 border border-glass-border text-slate-300 hover:text-white'
-            }`}
-          >
-            {bulkMode ? 'Exit Select' : 'Select'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => { setBulkMode(!bulkMode); setSelectedTaskIds(new Set()); }}
+              className={`px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+                bulkMode
+                  ? 'bg-brand-primary/20 text-brand-primary border border-brand-primary/30'
+                  : 'bg-surface-1 border border-glass-border text-slate-300 hover:text-white'
+              }`}
+            >
+              {bulkMode ? 'Exit Select' : 'Select'}
+            </button>
+          )}
 
           <Link
             to={`/projects/${projectId}/sprints`}
@@ -309,14 +313,16 @@ export const KanbanBoard = () => {
             Sprints
           </Link>
 
-          <button
-            id="add-task-btn"
-            onClick={() => openCreateModal()}
-            className="flex items-center gap-2 gradient-brand text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Add Task
-          </button>
+          {canEdit && (
+            <button
+              id="add-task-btn"
+              onClick={() => openCreateModal()}
+              className="flex items-center gap-2 gradient-brand text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Add Task
+            </button>
+          )}
         </div>
       </div>
 
@@ -364,13 +370,15 @@ export const KanbanBoard = () => {
                       {columnTasks.length}
                     </span>
                   </div>
-                  <button
-                    onClick={() => openCreateModal(column.id)}
-                    className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-glass-white transition-all"
-                    title={`Add task to ${column.title}`}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => openCreateModal(column.id)}
+                      className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-glass-white transition-all"
+                      title={`Add task to ${column.title}`}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Droppable Area */}
@@ -409,7 +417,7 @@ export const KanbanBoard = () => {
                                         onChange={() => toggleTaskSelection(task.id)}
                                         className="w-4 h-4 rounded border-glass-border text-brand-primary focus:ring-brand-primary/50 bg-surface-0 cursor-pointer"
                                       />
-                                    ) : (
+                                    ) : canEdit && (
                                       <div
                                         {...provided.dragHandleProps}
                                         className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-600 mt-0.5"
@@ -424,7 +432,7 @@ export const KanbanBoard = () => {
                                       {task.title}
                                     </h4>
                                   </div>
-                                  {!bulkMode && (
+                                  {!bulkMode && canDelete && (
                                     <button
                                       onClick={() => handleDelete(task.id, task.title)}
                                       className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"

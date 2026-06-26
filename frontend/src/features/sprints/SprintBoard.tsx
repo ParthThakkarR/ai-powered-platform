@@ -6,6 +6,7 @@ import {
   Plus, X, Loader2, Calendar, Target, BarChart3,
   Trash2, Play, Pause, CheckCircle, Clock,
 } from 'lucide-react';
+import { useUserRole } from '../../hooks/useUserRole';
 
 interface Sprint {
   id: number;
@@ -33,6 +34,7 @@ interface BurndownData {
 
 export const SprintBoard = () => {
   const { projectId } = useParams<{ projectId: string }>();
+  const { canEdit, canDelete } = useUserRole();
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [selectedSprint, setSelectedSprint] = useState<Sprint | null>(null);
   const [burndown, setBurndown] = useState<BurndownData | null>(null);
@@ -126,12 +128,14 @@ export const SprintBoard = () => {
           <h1 className="text-3xl font-bold text-white mb-1">Sprints</h1>
           <p className="text-slate-400">Manage sprints and track burndown progress.</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 gradient-brand text-white px-5 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
-        >
-          <Plus className="w-4 h-4" /> New Sprint
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 gradient-brand text-white px-5 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-brand-primary/20 font-semibold text-sm"
+          >
+            <Plus className="w-4 h-4" /> New Sprint
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -143,9 +147,11 @@ export const SprintBoard = () => {
           <Target className="w-12 h-12 text-slate-600 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-white mb-2">No sprints yet</h3>
           <p className="text-slate-400 mb-6">Create your first sprint to start tracking progress.</p>
-          <button onClick={() => setShowCreate(true)} className="text-brand-primary font-semibold hover:text-brand-secondary">
-            <Plus className="w-4 h-4 inline mr-1" /> Create Sprint
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowCreate(true)} className="text-brand-primary font-semibold hover:text-brand-secondary">
+              <Plus className="w-4 h-4 inline mr-1" /> Create Sprint
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -175,20 +181,24 @@ export const SprintBoard = () => {
                 </div>
                 {sprint.goal && <p className="text-xs text-slate-500 mt-2 line-clamp-1">{sprint.goal}</p>}
                 <div className="flex items-center gap-2 mt-3">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleActivate(sprint); }}
-                    className={`p-1 rounded-lg text-xs transition-all ${sprint.is_active ? 'text-amber-400 hover:bg-amber-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'}`}
-                    title={sprint.is_active ? 'Pause' : 'Activate'}
-                  >
-                    {sprint.is_active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(sprint); }}
-                    className="p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleActivate(sprint); }}
+                      className={`p-1 rounded-lg text-xs transition-all ${sprint.is_active ? 'text-amber-400 hover:bg-amber-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'}`}
+                      title={sprint.is_active ? 'Pause' : 'Activate'}
+                    >
+                      {sprint.is_active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(sprint); }}
+                      className="p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

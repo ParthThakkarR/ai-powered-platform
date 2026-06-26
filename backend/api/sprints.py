@@ -18,9 +18,9 @@ def list_sprints(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    org_id = deps.get_project_org_id(db, project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "VIEWER", current_user.is_superuser)
+
     sprints = db.query(Sprint).filter(Sprint.project_id == project_id).order_by(Sprint.start_date.desc()).all()
     return sprints
 
@@ -32,9 +32,9 @@ def create_sprint(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    org_id = deps.get_project_org_id(db, project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "MEMBER", current_user.is_superuser)
+
     sprint = Sprint(project_id=project_id, **sprint_in.model_dump())
     db.add(sprint)
     db.commit()
@@ -53,6 +53,10 @@ def update_sprint(
     sprint = db.query(Sprint).filter(Sprint.id == sprint_id).first()
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
+
+    org_id = deps.get_project_org_id(db, sprint.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "MEMBER", current_user.is_superuser)
+
     update_data = sprint_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(sprint, field, value)
@@ -71,6 +75,10 @@ def delete_sprint(
     sprint = db.query(Sprint).filter(Sprint.id == sprint_id).first()
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
+
+    org_id = deps.get_project_org_id(db, sprint.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "ADMIN", current_user.is_superuser)
+
     db.delete(sprint)
     db.commit()
     return {"status": "deleted", "id": sprint_id}
@@ -86,6 +94,10 @@ def add_task_to_sprint(
     sprint = db.query(Sprint).filter(Sprint.id == sprint_id).first()
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
+
+    org_id = deps.get_project_org_id(db, sprint.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "MEMBER", current_user.is_superuser)
+
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -102,6 +114,13 @@ def remove_task_from_sprint(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
+    sprint = db.query(Sprint).filter(Sprint.id == sprint_id).first()
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+
+    org_id = deps.get_project_org_id(db, sprint.project_id)
+    deps.verify_org_role(db, current_user.id, org_id, "MEMBER", current_user.is_superuser)
+
     task = db.query(Task).filter(Task.id == task_id, Task.sprint_id == sprint_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found in this sprint")

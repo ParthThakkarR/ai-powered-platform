@@ -14,6 +14,7 @@ from services.email_service import send_password_reset_email
 from core.rate_limit import limiter
 import secrets
 from models.password_reset import PasswordReset
+from models.team_member import TeamMember
 
 router = APIRouter()
 
@@ -61,8 +62,18 @@ def register_user(
 
 @router.get("/me", response_model=User)
 def read_user_me(
+    db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
+    member = (
+        db.query(TeamMember)
+        .filter(TeamMember.user_id == current_user.id)
+        .order_by(TeamMember.joined_at.asc())
+        .first()
+    )
+    if member:
+        current_user.organization_id = member.organization_id
+        current_user.role = member.role
     return current_user
 
 
@@ -160,7 +171,7 @@ def google_login(
     request: Request,
     *,
     db: Session = Depends(deps.get_db),
-    id_token: str = Body(..., alias="id_token"),
+    id_token: str = Body(..., embed=True),
 ) -> Any:
     """Login or register with Google account using a verified ID token."""
     from google.oauth2 import id_token as google_id_token
@@ -189,6 +200,85 @@ def google_login(
             email=email,
             password=secrets.token_urlsafe(32),
             full_name=name,
+        ))
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return {
+        "access_token": security.create_access_token(
+            user.id, expires_delta=access_token_expires
+        ),
+        "token_type": "bearer",
+    }
+
+
+@router.post("/github", response_model=Token)
+@limiter.limit("10/minute")
+def github_login(
+    request: Request,
+    *,
+    db: Session = Depends(deps.get_db),
+    code: str = Body(..., embed=True),
+) -> Any:
+    """Login or register with GitHub OAuth using an authorization code."""
+    import httpx
+
+    if not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="GitHub OAuth is not configured on the server")
+
+    try:
+        with httpx.Client() as client:
+            token_resp = client.post(
+                "https://github.com/login/oauth/access_token",
+                json={
+                    "client_id": settings.GITHUB_CLIENT_ID,
+                    "client_secret": settings.GITHUB_CLIENT_SECRET,
+                    "code": code,
+                },
+                headers={"Accept": "application/json"},
+            )
+            if token_resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to exchange GitHub code")
+
+            token_data = token_resp.json()
+            gh_access_token = token_data.get("access_token")
+            if not gh_access_token:
+                raise HTTPException(status_code=400, detail="GitHub did not return an access token")
+
+            user_resp = client.get(
+                "https://api.github.com/user",
+                headers={"Authorization": f"Bearer {gh_access_token}", "Accept": "application/json"},
+            )
+            if user_resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to fetch GitHub user")
+
+            gh_user = user_resp.json()
+
+            email = gh_user.get("email")
+            if not email:
+                emails_resp = client.get(
+                    "https://api.github.com/user/emails",
+                    headers={"Authorization": f"Bearer {gh_access_token}", "Accept": "application/json"},
+                )
+                if emails_resp.status_code == 200:
+                    emails = emails_resp.json()
+                    for e in emails:
+                        if e.get("primary") and e.get("verified"):
+                            email = e.get("email")
+                            break
+                    if not email and emails:
+                        email = emails[0].get("email")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Failed to communicate with GitHub")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="GitHub account has no email")
+
+    user = user_service.get_user_by_email(db, email=email)
+    if not user:
+        user = user_service.create_user(db, user=UserCreate(
+            email=email,
+            password=secrets.token_urlsafe(32),
+            full_name=gh_user.get("name", ""),
         ))
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

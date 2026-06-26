@@ -9,6 +9,7 @@ import { LabelsMultiSelect } from './LabelsMultiSelect';
 import { SubtaskChecklist } from './SubtaskChecklist';
 import { RichTextEditor } from '../../components/RichTextEditor';
 import { toast } from 'sonner';
+import { useUserRole } from '../../hooks/useUserRole';
 
 interface Label {
   id: number;
@@ -60,6 +61,7 @@ const PRIORITIES = [
 ];
 
 export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: TaskDetailPanelProps) => {
+  const { canEdit, canDelete } = useUserRole();
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [editTitle, setEditTitle] = useState('');
@@ -190,13 +192,15 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleDelete}
-              className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
-              title="Delete task"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                title="Delete task"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-glass-white transition-all"
@@ -210,14 +214,18 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
         <div className="flex-1 overflow-y-auto">
           {/* Title */}
           <div className="px-4 pt-4">
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              onBlur={handleSave}
-              className="w-full text-lg font-bold text-white bg-transparent border-none outline-none focus:ring-0 placeholder-slate-500"
-              placeholder="Task title..."
-            />
+            {canEdit ? (
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={handleSave}
+                className="w-full text-lg font-bold text-white bg-transparent border-none outline-none focus:ring-0 placeholder-slate-500"
+                placeholder="Task title..."
+              />
+            ) : (
+              <p className="text-lg font-bold text-white">{task.title}</p>
+            )}
           </div>
 
           {/* Description */}
@@ -240,11 +248,13 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
                 {STATUSES.map(s => (
                   <button
                     key={s.id}
-                    onClick={() => handleStatusChange(s.id)}
+                    onClick={() => canEdit && handleStatusChange(s.id)}
                     className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all ${
                       task.status === s.id
                         ? `${s.color} text-white`
-                        : 'bg-surface-0 text-slate-400 hover:text-white hover:bg-glass-white border border-glass-border'
+                        : canEdit
+                          ? 'bg-surface-0 text-slate-400 hover:text-white hover:bg-glass-white border border-glass-border'
+                          : 'bg-surface-0 text-slate-500 border border-glass-border cursor-default'
                     }`}
                   >
                     {s.label}
@@ -260,11 +270,13 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
                 {PRIORITIES.map(p => (
                   <button
                     key={p.id}
-                    onClick={() => handlePriorityChange(p.id)}
+                    onClick={() => canEdit && handlePriorityChange(p.id)}
                     className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all ${
                       task.priority === p.id
                         ? `${p.bg} ${p.color}`
-                        : 'bg-surface-0 text-slate-400 hover:text-white hover:bg-glass-white border border-glass-border'
+                        : canEdit
+                          ? 'bg-surface-0 text-slate-400 hover:text-white hover:bg-glass-white border border-glass-border'
+                          : 'bg-surface-0 text-slate-500 border border-glass-border cursor-default'
                     }`}
                   >
                     {p.label}
@@ -277,12 +289,18 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 w-16 flex-shrink-0">Due</span>
               <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
-                  value={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
-                  onChange={(e) => handleDueDateChange(e.target.value || null)}
-                  className={`text-xs px-2 py-1 rounded-lg bg-surface-0 border border-glass-border outline-none focus:ring-2 focus:ring-brand-primary/50 ${isOverdue ? 'text-red-400 border-red-500/50' : 'text-slate-300'}`}
-                />
+                {canEdit ? (
+                  <input
+                    type="date"
+                    value={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleDueDateChange(e.target.value || null)}
+                    className={`text-xs px-2 py-1 rounded-lg bg-surface-0 border border-glass-border outline-none focus:ring-2 focus:ring-brand-primary/50 ${isOverdue ? 'text-red-400 border-red-500/50' : 'text-slate-300'}`}
+                  />
+                ) : (
+                  <span className={`text-xs px-2 py-1 ${isOverdue ? 'text-red-400' : 'text-slate-300'}`}>
+                    {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
+                  </span>
+                )}
                 {isOverdue && (
                   <span className="flex items-center gap-1 text-xs text-red-400">
                     <AlertCircle className="w-3 h-3" /> overdue
@@ -294,16 +312,22 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
             {/* Assignee */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500 w-16 flex-shrink-0">Assignee</span>
-              <select
-                value={task.assignee_id ?? ''}
-                onChange={(e) => handleAssigneeChange(e.target.value ? Number(e.target.value) : null)}
-                className="text-xs px-2 py-1 rounded-lg bg-surface-0 border border-glass-border text-slate-300 outline-none focus:ring-2 focus:ring-brand-primary/50 cursor-pointer"
-              >
-                <option value="">Unassigned</option>
-                {teamMembers.map(m => (
-                  <option key={m.user_id} value={m.user_id}>{m.user_name || m.user_email}</option>
-                ))}
-              </select>
+              {canEdit ? (
+                <select
+                  value={task.assignee_id ?? ''}
+                  onChange={(e) => handleAssigneeChange(e.target.value ? Number(e.target.value) : null)}
+                  className="text-xs px-2 py-1 rounded-lg bg-surface-0 border border-glass-border text-slate-300 outline-none focus:ring-2 focus:ring-brand-primary/50 cursor-pointer"
+                >
+                  <option value="">Unassigned</option>
+                  {teamMembers.map(m => (
+                    <option key={m.user_id} value={m.user_id}>{m.user_name || m.user_email}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-xs text-slate-300">
+                  {task.assignee_id ? teamMembers.find(m => m.user_id === task.assignee_id)?.user_name || `User #${task.assignee_id}` : 'Unassigned'}
+                </span>
+              )}
             </div>
 
             {/* Labels */}
@@ -313,6 +337,7 @@ export const TaskDetailPanel = ({ taskId, onClose, onUpdate, currentUserId }: Ta
                 taskId={taskId}
                 selectedLabels={task.labels}
                 onLabelsChange={(labels) => setTask(prev => prev ? { ...prev, labels } : null)}
+                readOnly={!canEdit}
               />
             </div>
           </div>
