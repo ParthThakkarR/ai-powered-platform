@@ -7,11 +7,11 @@
   --color-brand-secondary: #2563eb;
   --color-brand-accent: #0ea5e9;
 
-  /* Surface Colors (Dark Mode) */
-  --color-surface-0: #0a0e1a;
-  --color-surface-1: #111827;
-  --color-surface-2: #1e293b;
-  --color-surface-3: #334155;
+  /* Surface Colors (Dark) */
+  --color-surface-0: #0f172a;
+  --color-surface-1: #1e293b;
+  --color-surface-2: #334155;
+  --color-surface-3: #475569;
 
   /* Status Colors */
   --color-status-todo: #6b7280;
@@ -25,9 +25,40 @@
   --color-priority-high: #ef4444;
   --color-priority-urgent: #dc2626;
 
-  /* Glass */
+  /* Glass (Dark) */
+  --color-glass-bg: rgba(255, 255, 255, 0.04);
   --color-glass-white: rgba(255, 255, 255, 0.06);
   --color-glass-border: rgba(255, 255, 255, 0.08);
+
+  /* Override white/black to be variable (for light mode) */
+  --color-white: #fff;
+  --color-black: #000;
+
+  /* Override slate palette so it uses CSS variables */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  /* Override gray palette */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  --color-gray-950: #030712;
 
   /* Animations */
   --animate-slide-up: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -41,6 +72,44 @@
 
   /* Font */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ===== Light Mode Overrides ===== */
+.light {
+  --color-surface-0: #f1f5f9;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-surface-3: #e2e8f0;
+  --color-glass-bg: rgba(0, 0, 0, 0.03);
+  --color-glass-white: rgba(0, 0, 0, 0.04);
+  --color-glass-border: rgba(0, 0, 0, 0.08);
+  --color-white: #0f172a;
+  --color-black: #f8fafc;
+
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+
+  --color-gray-50: #030712;
+  --color-gray-100: #111827;
+  --color-gray-200: #1f2937;
+  --color-gray-300: #374151;
+  --color-gray-400: #4b5563;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #9ca3af;
+  --color-gray-700: #d1d5db;
+  --color-gray-800: #e5e7eb;
+  --color-gray-900: #f3f4f6;
+  --color-gray-950: #f9fafb;
+
 }
 
 /* ===== Keyframes ===== */
@@ -104,7 +173,7 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    @apply bg-surface-0 text-gray-100;
+    @apply bg-surface-0 text-slate-300;
   }
 
   /* Scrollbar Styling */
@@ -137,6 +206,26 @@
     outline: 2px solid rgba(59, 130, 246, 0.5);
     outline-offset: 2px;
   }
+
+  /* Light mode selection/focus */
+  .light ::selection {
+    background: rgba(37, 99, 235, 0.2);
+    color: #1e293b;
+  }
+
+  .light :focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.6);
+  }
+
+  /* Light mode scrollbar */
+  .light ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+  }
+
+  .light ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+  }
+
 }
 
 /* ===== Utility Classes ===== */
@@ -145,7 +234,12 @@
     background: rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--color-glass-border);
+  }
+
+  .light .glass {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.08);
   }
 
   .glass-strong {
@@ -153,6 +247,11 @@
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .light .glass-strong {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.12);
   }
 
   .gradient-text {
@@ -182,8 +281,16 @@
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.25), 0 0 60px rgba(59, 130, 246, 0.08);
   }
 
+  .light .glow-brand {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15), 0 0 60px rgba(59, 130, 246, 0.05);
+  }
+
   .glow-accent {
     box-shadow: 0 0 20px rgba(14, 165, 233, 0.25), 0 0 60px rgba(14, 165, 233, 0.08);
+  }
+
+  .light .glow-accent {
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.15), 0 0 60px rgba(14, 165, 233, 0.05);
   }
 
   .text-balance {
@@ -197,11 +304,19 @@
     border-radius: 8px;
   }
 
+  .light .skeleton {
+    background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 75%);
+  }
+
   .card-lift {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .card-lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .light .card-lift:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
   }
 }
