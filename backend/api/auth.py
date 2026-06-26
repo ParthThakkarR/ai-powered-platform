@@ -13,8 +13,11 @@ from services import user_service
 from services.email_service import send_password_reset_email
 from core.rate_limit import limiter
 import secrets
+import logging
 from models.password_reset import PasswordReset
 from models.team_member import TeamMember
+
+logger = logging.getLogger("aiflow.auth")
 
 router = APIRouter()
 
@@ -184,23 +187,27 @@ def google_login(
         payload = google_id_token.verify_oauth2_token(
             id_token, google_requests.Request(), settings.GOOGLE_CLIENT_ID
         )
-    except Exception:
+    except Exception as e:
+        logger.error(f"Google token verification failed: {e}", exc_info=True)
         raise HTTPException(status_code=401, detail="Invalid or expired Google token")
 
     email = payload.get("email")
     name = payload.get("name", "")
-    google_sub = payload.get("sub")
 
     if not email:
         raise HTTPException(status_code=400, detail="Google account has no email")
 
     user = user_service.get_user_by_email(db, email=email)
     if not user:
-        user = user_service.create_user(db, user=UserCreate(
-            email=email,
-            password=secrets.token_urlsafe(32),
-            full_name=name,
-        ))
+        try:
+            user = user_service.create_user(db, user=UserCreate(
+                email=email,
+                password=secrets.token_urlsafe(32),
+                full_name=name,
+            ))
+        except Exception as e:
+            logger.error(f"Failed to create user from Google login: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to create user account")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {
