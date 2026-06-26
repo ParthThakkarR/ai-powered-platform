@@ -22,16 +22,10 @@ export const GitHubCallback = () => {
     githubAuthApi.login(code)
       .then(async (res) => {
         await login(res.data.access_token);
-        if (window.opener) {
-          window.opener.postMessage({ type: 'github-login', success: true }, window.location.origin);
-        }
-        window.close();
+        navigate('/dashboard');
       })
       .catch(() => {
-        if (window.opener) {
-          window.opener.postMessage({ type: 'github-login', success: false }, window.location.origin);
-        }
-        window.close();
+        navigate('/login?error=github-login-failed');
       });
   }, [searchParams, navigate, login]);
 

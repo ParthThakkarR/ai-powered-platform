@@ -36,6 +36,12 @@ except (json.JSONDecodeError, TypeError):
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
     origins.append(settings.FRONTEND_URL)
 
+# Hardcoded production URL as safety net if env vars aren't set correctly
+prod_urls = ["https://aiflow-frontend.onrender.com", "http://localhost:5173"]
+for url in prod_urls:
+    if url not in origins:
+        origins.append(url)
+
 logger.info(f"CORS allowed origins: {origins}")
 
 app.add_middleware(
@@ -58,10 +64,15 @@ async def middleware(request: Request, call_next):
         return response
     except Exception as exc:
         logger.error(f"Unhandled error: {request.method} {request.url.path} - {exc}", exc_info=True)
-        return JSONResponse(
+        origin = request.headers.get("origin", "")
+        resp = JSONResponse(
             status_code=500,
             content={"detail": "An internal error occurred. Please try again."},
         )
+        if origin:
+            resp.headers["Access-Control-Allow-Origin"] = origin
+            resp.headers["Access-Control-Allow-Credentials"] = "true"
+        return resp
 
 # Validation error handler
 from fastapi.exceptions import RequestValidationError

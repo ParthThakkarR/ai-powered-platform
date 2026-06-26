@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { Lock, Mail, AlertCircle, ArrowRight, Zap, BarChart3, Bot } from 'lucide-react';
@@ -21,27 +21,20 @@ export const Login = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const callbackRef = useRef<any>(null);
+  const googleInitializedRef = useRef(false);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'github-login-failed') {
+      setError('GitHub login failed. Please try again.');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type === 'github-login') {
-        if (event.data.success) {
-          navigate('/dashboard');
-        } else {
-          setError('GitHub login failed');
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [navigate]);
 
   const handleGoogleCredentialResponse = useCallback(async (response: any) => {
     try {
@@ -66,7 +59,8 @@ export const Login = () => {
     if (!clientId) return;
 
     const initGoogle = () => {
-      if (window.google) {
+      if (window.google && !googleInitializedRef.current) {
+        googleInitializedRef.current = true;
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: (response: any) => callbackRef.current?.(response),
@@ -79,6 +73,7 @@ export const Login = () => {
             text: 'signin_with',
           });
         }
+        window.google.accounts.id.prompt();
       }
     };
 
@@ -92,6 +87,12 @@ export const Login = () => {
     script.async = true;
     script.onload = initGoogle;
     document.body.appendChild(script);
+
+    return () => {
+      if (window.google && googleInitializedRef.current) {
+        googleInitializedRef.current = false;
+      }
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -242,11 +243,7 @@ export const Login = () => {
                 const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
                 if (!clientId) return;
                 const redirectUri = `${window.location.origin}/auth/callback/github`;
-                const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email`;
-                const w = 500, h = 600;
-                const left = window.screenX + (window.outerWidth - w) / 2;
-                const top = window.screenY + (window.outerHeight - h) / 2;
-                window.open(url, 'github-auth', `width=${w},height=${h},left=${left},top=${top}`);
+                window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email`;
               }}
               className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-surface-1 border border-glass-border text-white font-semibold text-sm hover:bg-surface-2 transition-all"
             >
