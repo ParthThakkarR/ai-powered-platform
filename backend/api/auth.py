@@ -128,7 +128,8 @@ def forgot_password(
     db.add(reset)
     db.commit()
 
-    reset_url = f"{request.base_url.origin}/reset-password?token={token}"
+    frontend_url = settings.FRONTEND_URL or f"{request.base_url.origin}"
+    reset_url = f"{frontend_url}/reset-password?token={token}"
     email_sent = send_password_reset_email(user.email, reset_url)
 
     response: dict[str, Any] = {"message": "If an account exists, a reset email has been sent."}
